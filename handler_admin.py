@@ -43,24 +43,13 @@ async def admin_ok(callback: CallbackQuery, bot:Bot):
 
     # принять все файлы
     await accept_user(worker)
-    await log(logs, worker, 'admin_accept')
+    await log(logs, worker, 'admin_accept_button')
 
     # убрать кнопки админа
     await bot.edit_message_text(f'{msg.text}\n✅ Принято', msg.chat.id, msg.message_id, reply_markup=None)
     # Дать юзеру аппрув
     await bot.send_message(chat_id=worker, text=lex['all_approved']+f'id{worker}')
-    await log(logs, worker, 'admin_accept')
-    # # сохранить ссылки
-    # gc = pygsheets.authorize(service_file='token.json')
-    # sheet_url = 'https://docs.google.com/spreadsheets/d/1dlZdboea3OAzNpivRxgDiQ6SaW14RjHdfFD-77HwGiQ/edit#gid=0'
-    # spreadsheet = gc.open_by_url(sheet_url)
-    # try:
-    #     spreadsheet.add_worksheet(title=worker)
-    # except googleapiclient.errors.HttpError:
-    #     pass
-
-    # сохранить ссылки в g_sheet, в отдельный tsv и print в консоль
-
+    # сохранить ссылки
     path = await get_tsv(TKN, bot, msg, worker)
     # отправить tsv админу
     for i in admins:
@@ -121,19 +110,6 @@ async def reply_to_msg(msg: Message, bot: Bot):
             # прочитать данные юзера из пд
             with open(baza_info, 'r', encoding='utf-8') as f:
                 data_inf = json.load(f)
-            # if worker not in data_inf:
-            #     print(worker, 'new user from:', None)
-            # data_tsk.setdefault(worker, lex['user_account'])
-            #
-            # # создать запись ПД
-            # print(user_id, 'pd created')
-            # info = lex['user_pd']
-            # info['referral'] = None
-            # info['first_start'] = None
-            # info['tg_username'] = message.from_user.username
-            # info['tg_fullname'] = message.from_user.full_name
-            # print(info)
-            # data_inf.setdefault(worker, info)
 
             if worker in data_inf:
                 if isinstance(data_inf[worker], list):
@@ -198,7 +174,7 @@ async def reply_to_msg(msg: Message, bot: Bot):
 
     # если админ отвечает на сообщение юзера
     elif worker:
-        print('adm reply')
+        await log(logs, worker, f'adm_reply: {admin_response}')
         # отпр ответ юзеру и всем админам
         for i in [worker]+admins:
             await bot.send_message(chat_id=i, text=lex['msg_from_admin']+txt_for_worker+admin_response)
@@ -305,7 +281,9 @@ async def adm_msg(msg: Message, bot: Bot):
 
         # принять все файлы
         await accept_user(worker)
-        await log(logs, worker, 'admin_accept')
+        await log(logs, worker, 'admin_accept_command')
+        # Дать юзеру аппрув
+        await bot.send_message(chat_id=worker, text=lex['all_approved'] + f'id{worker}')
         #  сообщить админам
         for i in admins:
             await bot.send_message(
@@ -315,12 +293,12 @@ async def adm_msg(msg: Message, bot: Bot):
     elif txt.lower().startswith('tsv id'):
         # worker = вытащить id из текста сообщения
         worker = id_from_text(txt)
-        await log(logs, worker, 'admin_tsv')
+        await log(logs, worker, 'adm_ask_tsv')
 
         # отправить tsv админу
         path = await get_tsv(TKN, bot, msg, worker)
         await bot.send_document(chat_id=msg.from_user.id, document=FSInputFile(path=path))
-        await log(logs, worker, 'adm get_tsv')
+        await log(logs, worker, 'adm_get_tsv')
 
     # отпр файлы юзера, прим сообщения: files id12345 review
     elif txt.lower().startswith('files id'):
@@ -356,5 +334,4 @@ async def adm_msg(msg: Message, bot: Bot):
     else:
         await msg.answer('Команда не распознана')
         await log(logs, user, 'adm_tupit')
-
 

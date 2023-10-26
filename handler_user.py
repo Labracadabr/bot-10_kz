@@ -167,7 +167,7 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
 
 
 # команда /next - дать юзеру след задание
-@router.message(Command(commands=['next']))
+@router.message(Command(commands=['next']), ~StateFilter(FSM.policy))
 async def next_cmnd(message: Message, bot: Bot, state: FSMContext):
     user = str(message.from_user.id)
     print(user, '/next')
@@ -263,7 +263,6 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 
     # вычисляем, какое было прислано задание
     sent_file = find_next_task(user)
-    content_type = msg.content_type
     print(user, 'sent', sent_file)
     await log('logs.json', user, f'SENT_{sent_file}')
 
@@ -310,8 +309,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 
         # уведомить юзера, админов, внести в логи и в консоль
         await msg.reply(lex['all_sent'])
-        await log('logs.json', user, 'SENT_ALL_FILES')
-        print(user, 'SENT_ALL_FILES')
+        await log(logs, user, 'SENT_ALL_FILES')
         for i in admins + [validator]:
             if i:
                 await bot.send_message(chat_id=i, text=f'Юзер отправил все файлы - id{user}'
@@ -366,6 +364,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
             nums_to_cancel.append(num)
         else:
             await msg.reply(lex['cancel_wrong_form'])
+            await log(logs, user, 'cancel_wrong_form')
             return
 
     # если все номера указаны верно
@@ -396,6 +395,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
         # уведомить юзера о результате
         await msg.reply(text=lex['cancel_ok']+', '.join(cancelled))
         await state.clear()
+        await log(logs, user, f'cancelled {cancelled}, not found {not_found}')
         if not_found:
             await msg.answer(text=lex['cancel_not_found']+', '.join(not_found))
 
@@ -403,7 +403,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
 # юзер что-то пишет
 @router.message(~Access(admins+validators), F.content_type.in_({'text'}))
 async def usr_txt2(msg: Message, bot: Bot):
-    await log('logs.json', msg.from_user.id, msg.text)
+    await log(logs, msg.from_user.id, f'msg_to_admin: {msg.text}')
 
     # показать админам
     for i in admins:

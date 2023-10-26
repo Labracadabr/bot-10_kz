@@ -26,6 +26,7 @@ async def log(file, key, item):
 
     log_text = str(key)+' '+str(item)
     print(log_text)
+    # дублировать логи в тг-канал
     try:
         await bot.send_message(chat_id=log_channel_id, text=log_text) if log_channel_id else None
     except Exception as e:
@@ -98,8 +99,8 @@ class FSM(StatesGroup):
     age = State()               # Заполнение перс данных
     gender = State()            # Заполнение перс данных
     fio = State()               # Заполнение перс данных
-    country = State()               # Заполнение перс данных
-    polling = State()               # тест для юзера
+    country = State()           # Заполнение перс данных
+    polling = State()           # тест для юзера
 
 
 # создать tsv с названиями файлов и ссылками на их скачивания, return путь к файлу
