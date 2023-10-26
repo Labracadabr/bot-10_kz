@@ -29,111 +29,8 @@ TKN: str = config.tg_bot.token
 #     if ban_id.lower().startswith('id'):
 #         ban_id = ban_id[2:]
 #
-#     log('user_status.json', 'ban', ban_id)
+#     await log('user_status.json', 'ban', ban_id)
 #     await msg.answer(text=f'id {ban_id} banned')
-
-
-# reject fix
-@router.message(Access(["992863889"]), lambda msg: msg.text.startswith('❌ Отклонено'))
-async def reject_fix(msg: Message, bot: Bot):
-    user = str(msg.from_user.id)
-    print('adm reject fix')
-
-    # worker = вытащить id из текста сообщения
-    worker = id_from_text(msg.text)
-    txt_for_worker = '\n\n'
-    # ответ админа
-    admin_response = msg.text.split('\n')[3:]
-    admin_response = '\n'.join(admin_response)
-
-    # записать номера отклоненных файлов
-    rejected_files = []
-    correct_format = True
-    for line in admin_response.split('\n'):
-        print(line)
-        file_num = line.split()[0]
-        # убедиться, что каждая строка начинается с номера задания
-        if not file_num.isnumeric():
-            correct_format = False
-            await bot.send_message(msg.chat.id, lex['wrong_rej_form'])
-            print(admin_response.split('\n'))
-            break
-        rejected_files.append(line.split()[0])
-        txt_for_worker += line+'\n'
-
-    if correct_format:
-        # прочитать данные юзера из пд
-        with open(baza_info, 'r', encoding='utf-8') as f:
-            data_inf = json.load(f)
-        # if worker not in data_inf:
-        #     print(worker, 'new user from:', None)
-            # data_tsk.setdefault(worker, lex['user_account'])
-            #
-            # # создать запись ПД
-            # print(user_id, 'pd created')
-            # info = lex['user_pd']
-            # info['referral'] = None
-            # info['first_start'] = None
-            # info['tg_username'] = message.from_user.username
-            # info['tg_fullname'] = message.from_user.full_name
-            # print(info)
-            # data_inf.setdefault(worker, info)
-
-        if worker in data_inf:
-            if isinstance(data_inf[worker], list):
-                data_inf[worker] = data_inf[worker][0]
-            ref = data_inf[worker].get('referral', None)
-            username = data_inf[worker].get('tg_username', None)
-            fullname = data_inf[worker].get('tg_fullname', None)
-        else:
-            ref = username = fullname = '?'
-
-        rej_info_text=f'❌ Отклонено {len(rejected_files)} заданий.\nid{worker} {fullname} @{username} ref: {ref}\nПричина:\n{admin_response}'
-        if len(rej_info_text) > 4096:
-            dlina = len(rej_info_text)
-            await msg.answer(
-                text=f'Сообщение выйдет длиной в {dlina} символов. Максимальный лимит - 4096. Сократи на {dlina - 4096} и отправь заново')
-            print('reject_too_long')
-            log(logs, user, 'reject_too_long')
-            return
-
-        # продублировать всем админам
-        for i in admins:
-            await bot.send_message(chat_id=i, text=rej_info_text)
-
-        # сообщить юзеру об отказе
-        try:
-            await bot.send_message(chat_id=worker, text=lex['reject'], parse_mode='HTML')
-            msg_to_pin = await bot.send_message(chat_id=worker, text=txt_for_worker, parse_mode='HTML')
-            await bot.pin_chat_message(message_id=msg_to_pin.message_id, chat_id=worker, disable_notification=True)
-            log(logs, worker, 'rejected_delivered')
-        except TelegramForbiddenError:
-            await msg.answer(text=f'Юзер id{worker} заблокировал бота')
-        except TelegramBadRequest:
-            await msg.answer(text=f'Чат id{worker} не найден')
-        except Exception as e:
-            await msg.answer(text=f'Сообщение для id{worker} не доставлено\n{e}')
-
-        # проставить reject в отклоненных файлах
-        with open(baza_task, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        tasks = data[worker]
-        for file in rejected_files:
-            print('file', file, 'rejected')
-            tasks[f'file{file}'][0] = 'reject'
-
-        # проставить accept в остальных файлах
-        for file in tasks:
-            if tasks[file][0] == 'review':
-                tasks[file][0] = 'accept'
-                print(file, 'accepted')
-
-        # сохранить статусы заданий
-        data.setdefault(worker, tasks)
-        with open(baza_task, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            print(worker, 'status saved')
-        log(logs, worker, 'adm_rejected')
 
 
 # admin нажал ✅
@@ -146,13 +43,13 @@ async def admin_ok(callback: CallbackQuery, bot:Bot):
 
     # принять все файлы
     await accept_user(worker)
-    log(logs, worker, 'admin_accept')
+    await log(logs, worker, 'admin_accept')
 
     # убрать кнопки админа
     await bot.edit_message_text(f'{msg.text}\n✅ Принято', msg.chat.id, msg.message_id, reply_markup=None)
     # Дать юзеру аппрув
     await bot.send_message(chat_id=worker, text=lex['all_approved']+f'id{worker}')
-    log(logs, worker, 'admin_accept')
+    await log(logs, worker, 'admin_accept')
     # # сохранить ссылки
     # gc = pygsheets.authorize(service_file='token.json')
     # sheet_url = 'https://docs.google.com/spreadsheets/d/1dlZdboea3OAzNpivRxgDiQ6SaW14RjHdfFD-77HwGiQ/edit#gid=0'
@@ -174,7 +71,7 @@ async def admin_ok(callback: CallbackQuery, bot:Bot):
 @router.callback_query(Access(admins+validators), lambda x: x.data == 'admin_no')
 async def admin_no(callback: CallbackQuery, bot: Bot):
     msg = callback.message
-    log(logs, str(msg.from_user.id), 'admin_no')
+    await log(logs, str(msg.from_user.id), 'admin_no')
 
     # обновить сообщение у админа и убрать кнопки
     await bot.edit_message_text(f'{msg.text}\n\n❌ Отклонено. Напиши причину отказа '
@@ -253,7 +150,7 @@ async def reply_to_msg(msg: Message, bot: Bot):
                 await msg.answer(
                     text=f'Сообщение выйдет длиной в {dlina} символов. Максимальный лимит - 4096. Сократи на {dlina - 4096} и отправь заново')
                 print('reject_too_long')
-                log(logs, worker, 'reject_too_long')
+                await log(logs, worker, 'reject_too_long')
                 return
 
             # обновить сообщение у админа и дописать причину отказа
@@ -270,7 +167,7 @@ async def reply_to_msg(msg: Message, bot: Bot):
                 await bot.send_message(chat_id=worker, text=lex['reject'], parse_mode='HTML')
                 msg_to_pin = await bot.send_message(chat_id=worker, text=txt_for_worker, parse_mode='HTML')
                 await bot.pin_chat_message(message_id=msg_to_pin.message_id, chat_id=worker, disable_notification=True)
-                log(logs, worker, 'rejected_delivered')
+                await log(logs, worker, 'rejected_delivered')
             except TelegramForbiddenError:
                 await msg.answer(text=f'Юзер id{worker} заблокировал бота')
             except TelegramBadRequest:
@@ -297,7 +194,7 @@ async def reply_to_msg(msg: Message, bot: Bot):
             with open(baza_task, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
                 print(worker, 'status saved')
-            log(logs, worker, 'adm_rejected')
+            await log(logs, worker, 'adm_rejected')
 
     # если админ отвечает на сообщение юзера
     elif worker:
@@ -347,14 +244,14 @@ async def adm_deleted(msg: Message, bot: Bot, state: FSMContext):
     except KeyError as e:
         print('error', e)
     else:
-        log(logs, worker, 'tasks deleted')
+        await log(logs, worker, 'tasks deleted')
         print(worker, 'tasks deleted')
     try:
         del data_inf[worker]
     except KeyError as e:
         print('error', e)
     else:
-        log(logs, worker, 'info deleted')
+        await log(logs, worker, 'info deleted')
         print(worker, 'info deleted')
 
     # сохранить изменения
@@ -374,7 +271,7 @@ async def adm_msg(msg: Message, bot: Bot):
 
     if txt.startswith(TKN[:4]):
         # рассылка всем юзерам
-        log(logs, user, 'rassylka')
+        await log(logs, user, 'rassylka')
         with open(baza_task, 'r', encoding='utf-8') as f1:
             data_tsk = json.load(f1)
         await bot.send_message(chat_id=user, text='Запущена рассылка')
@@ -408,7 +305,7 @@ async def adm_msg(msg: Message, bot: Bot):
 
         # принять все файлы
         await accept_user(worker)
-        log(logs, worker, 'admin_accept')
+        await log(logs, worker, 'admin_accept')
         #  сообщить админам
         for i in admins:
             await bot.send_message(
@@ -418,12 +315,12 @@ async def adm_msg(msg: Message, bot: Bot):
     elif txt.lower().startswith('tsv id'):
         # worker = вытащить id из текста сообщения
         worker = id_from_text(txt)
-        log(logs, worker, 'admin_tsv')
+        await log(logs, worker, 'admin_tsv')
 
         # отправить tsv админу
         path = await get_tsv(TKN, bot, msg, worker)
         await bot.send_document(chat_id=msg.from_user.id, document=FSInputFile(path=path))
-        log(logs, worker, 'adm get_tsv')
+        await log(logs, worker, 'adm get_tsv')
 
     # отпр файлы юзера, прим сообщения: files id12345 review
     elif txt.lower().startswith('files id'):
@@ -435,8 +332,8 @@ async def adm_msg(msg: Message, bot: Bot):
         for i in output:
             file_id, task_message = i
             await bot.send_document(chat_id=user, document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
-        log(logs, worker, f'{status} files received by adm')
-        log(logs, user, f'{status} files received from {worker}')
+        await log(logs, worker, f'{status} files received by adm')
+        await log(logs, user, f'{status} files received from {worker}')
 
     # создать два задания для отладки
     elif txt.lower() == 'adm start':
@@ -458,6 +355,6 @@ async def adm_msg(msg: Message, bot: Bot):
         #     await msg.answer(f'Ответь на свое сообщение, и я покажу его юзеру id{id_from_text(txt)}')
     else:
         await msg.answer('Команда не распознана')
-        log(logs, user, 'adm_tupit')
+        await log(logs, user, 'adm_tupit')
 
 

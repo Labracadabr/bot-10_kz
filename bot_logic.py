@@ -2,21 +2,34 @@ import json
 from aiogram.filters import BaseFilter
 from aiogram.filters.state import State, StatesGroup
 import os
-from settings import baza_task, baza_info, tasks_tsv, logs, total_tasks
+from settings import baza_task, baza_info, tasks_tsv, logs, total_tasks, log_channel_id
 from lexic import lex
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram import Bot
+from config import Config, load_config
+
+
+# Инициализация
+config: Config = load_config()
+TKN: str = config.tg_bot.token
+bot: Bot = Bot(TKN)
 
 
 # Запись данных item в указанный json file по ключу key
-def log(file, key, item):
+async def log(file, key, item):
     with open(file, encoding='utf-8') as f:
         data = json.load(f)
-
     data.setdefault(str(key), []).append(item)
-
     with open(file, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+    log_text = str(key)+' '+str(item)
+    print(log_text)
+    try:
+        await bot.send_message(chat_id=log_channel_id, text=log_text) if log_channel_id else None
+    except Exception as e:
+        print(e)
 
 
 # айди из текста
@@ -85,6 +98,7 @@ class FSM(StatesGroup):
     age = State()               # Заполнение перс данных
     gender = State()            # Заполнение перс данных
     fio = State()               # Заполнение перс данных
+    country = State()               # Заполнение перс данных
     polling = State()               # тест для юзера
 
 
@@ -157,7 +171,7 @@ async def accept_user(worker) -> None:
 # отправить в чат файлы юзера в указанном статусе
 async def send_files(worker, status) -> list | None:
     #  логи
-    log(logs, worker, f'{status} files requested')
+    await log(logs, worker, f'{status} files requested')
     #  правильность ввода
     if status not in ('reject', 'accept', 'review'):
         print('wrong adm request')

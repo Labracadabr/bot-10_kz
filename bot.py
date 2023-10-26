@@ -18,8 +18,8 @@ async def main():
     dp.include_router(handler_pd.router)
     dp.include_router(handler_user.router)
     dp.include_router(handler_admin.router)
-    # import test
-    # dp.include_router(test.router)
+    # import handler_test
+    # dp.include_router(handler_test.router)
 
     # Пропускаем накопившиеся апдейты и запускаем polling
     await bot.delete_webhook(drop_pending_updates=False)  # False > бот ответит на апдейты, присланные за время откл

@@ -22,7 +22,7 @@ storage: MemoryStorage = MemoryStorage()
 async def cancel_command(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     print(user, msg.text)
-    log(logs, user, msg.text)
+    await log(logs, user, msg.text)
     # чтение БД
     with open(baza_info, 'r', encoding='utf-8') as f:
         data_inf = json.load(f)
@@ -33,7 +33,7 @@ async def cancel_command(msg: Message, state: FSMContext):
     except KeyError:
         # создать запись ПД
         print(user, 'pd created')
-        log(logs, user, 'pd created')
+        await log(logs, user, 'pd created')
         info = lex['user_pd']
         info['first_start'] = msg.date.strftime("%d/%m/%Y %H:%M")
         info['tg_username'] = msg.from_user.username
@@ -46,22 +46,22 @@ async def cancel_command(msg: Message, state: FSMContext):
     # проверить заполнены ли уже перс данные
     try:
         data_inf[user]['gender']
-        log(logs, user, 'try')
+        await log(logs, user, 'try')
         print('try')
     except KeyError:
         data_inf[user].setdefault('gender', None)
-        log(logs, user, 'exc')
+        await log(logs, user, 'exc')
         print('exc')
     if not data_inf[user]['gender']:
         # спросить возраст
         await state.set_state(FSM.age)
         await msg.answer(lex['age'])
         print(user, 'ask age')
-        log('logs.json', user, 'ask age')
+        await log('logs.json', user, 'ask age')
 
     else:
         await msg.answer(lex['pd_ok'])
-        log('logs.json', user, 'pd ok')
+        await log('logs.json', user, 'pd ok')
 
 
 # юзер отправляет возраст
@@ -70,7 +70,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     age = msg.text
     print(user, age)
-    log('logs.json', user, age)
+    await log('logs.json', user, age)
 
     # проверка правильного ввода
     if age.isnumeric() and len(age) == 2:
@@ -86,7 +86,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
         await state.set_state(FSM.gender)
         await msg.answer(text=lex['gender'])
         print(user, 'ask gender')
-        log('logs.json', user, 'ask gender')
+        await log('logs.json', user, 'ask gender')
 
     else:
         await msg.reply(text=lex['age_bad'])
@@ -98,7 +98,7 @@ async def cancel(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     gender = msg.text.lower()
     print(user, gender)
-    log('logs.json', user, gender)
+    await log('logs.json', user, gender)
 
     # проверка правильности ввода
     if gender == 'm' or gender == 'f':
@@ -117,7 +117,7 @@ async def cancel(msg: Message, state: FSMContext):
             if data_inf[user]['referral'].lower() == 'td':
                 await state.set_state(FSM.fio)
                 await msg.answer(text=lex['fio'])
-                log('logs.json', user, 'ask gender')
+                await log('logs.json', user, 'ask fio')
                 print(user, 'fio')
 
             # если толокер, то дать id
@@ -125,28 +125,28 @@ async def cancel(msg: Message, state: FSMContext):
                 print(user, 'toloka')
                 await msg.answer(text=lex['tlk_ok'])
                 await msg.answer(text=f'<code>{user}</code>', parse_mode='HTML')
-                log('logs.json', user, 'tlk ok')
+                await log('logs.json', user, 'tlk ok')
                 await state.clear()
 
             else:
                 await msg.answer(text=lex['pd_ok'])
-                log('logs.json', user, 'gender ok')
+                await log('logs.json', user, 'gender ok')
                 await state.clear()
         else:
             await msg.answer(text=lex['pd_ok'])
-            log('logs.json', user, 'gender ok')
+            await log('logs.json', user, 'gender ok')
             await state.clear()
     else:
         await msg.reply(text=lex['gender_bad'])
 
 
-# юзер отправляет ФИО
-@router.message(F.content_type.in_({'text'}), StateFilter(FSM.fio))
+# юзер отправляет страну
+@router.message(F.content_type.in_({'text'}), StateFilter(FSM.country))
 async def cancel(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     fio = msg.text
     print(user, fio)
-    log('logs.json', user, fio)
+    await log('logs.json', user, fio)
     slov = len(fio.split())
 
     # проверка правильности ввода
@@ -161,7 +161,7 @@ async def cancel(msg: Message, state: FSMContext):
             json.dump(data_inf, f, indent=2, ensure_ascii=False)
 
         await msg.answer(text=lex['pd_ok'])
-        log('logs.json', user, 'fio ok')
+        await log('logs.json', user, 'fio ok')
         await state.clear()
     else:
         await msg.reply(text=lex['fio_bad'])

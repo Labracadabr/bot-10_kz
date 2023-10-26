@@ -24,7 +24,7 @@ storage: MemoryStorage = MemoryStorage()
 async def process_help_command(msg: Message):
     user = str(msg.from_user.id)
     print(user, '/help')
-    log('logs.json', user, '/help')
+    await log('logs.json', user, '/help')
 
     if user in admins + validators:
         await msg.answer(lex['adm_help'], parse_mode='HTML')
@@ -37,22 +37,16 @@ async def process_help_command(msg: Message):
 async def process_help_command(msg: Message):
     user = str(msg.from_user.id)
     print(user, '/instruct')
-    log('logs.json', user, '/instruct')
+    await log('logs.json', user, '/instruct')
 
     # текст
     await msg.answer(lex['instruct1'], parse_mode='HTML')
-
-    # # пример
-    await msg.answer(text=lex['good_exmpl'], parse_mode='HTML',disable_web_page_preview=False)
-    #
-    # антипример
-    await msg.answer(text=lex['bad_exmpl'], parse_mode='HTML' ,disable_web_page_preview=False)
 
 
 # # чекнуть не в бане ли юзер
 # @router.message(Access(book['ban']))
 # async def no_access(message: Message):
-#     log('logs.json', message.from_user.id, 'ban')
+#     await log('logs.json', message.from_user.id, 'ban')
 #     await message.answer(lex['ban'])
 
 
@@ -61,7 +55,7 @@ async def process_help_command(msg: Message):
 async def process_status_command(msg: Message, bot: Bot):
     user = str(msg.from_user.id)
     print(user, '/status')
-    log('logs.json', user, '/status')
+    await log('logs.json', user, '/status')
     with open(baza_task, 'r') as f:
         data = json.load(f)
 
@@ -162,14 +156,14 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
                 chat_id=i, disable_notification=True)
 
         # логи
-        log(logs, 'logs',
+        await log(logs, 'logs',
             f'{msg_time}, {user.full_name}, @{user.username}, id {user.id}, {user.language_code}, start={referral}')
-        log(logs, user.id, f'/start={referral}')
+        await log(logs, user.id, f'/start={referral}')
 
     # если юзер уже в БД и просто снова нажал старт
     else:
         await bot.send_message(text=lex['start_again'], chat_id=user_id, reply_markup=keyboard_user)
-        log(logs, user.id, f'start_again')
+        await log(logs, user.id, f'start_again')
 
 
 # команда /next - дать юзеру след задание
@@ -177,80 +171,11 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
 async def next_cmnd(message: Message, bot: Bot, state: FSMContext):
     user = str(message.from_user.id)
     print(user, '/next')
-    log(logs, user, '/next')
+    await log(logs, user, '/next')
 
     # найти первое доступное задание, т.е. без статуса accept или review, и отправить юзеру
     file_num = find_next_task(user)
 
-    # если перед этим заданием требуется тестик, то отправить соотв poll
-    # if file_num in ('file01', 'file04', 'file31', 'file35', 'file59'):
-    if file_num in ('file01', 'file04', 'file35'):
-        await message.answer(text=lex['poll_msg'])
-
-        # отравка фото\видео примеров
-        if isinstance(lex[f'poll_pic_{file_num}'], list):
-            for i, link in enumerate(lex[f'poll_pic_{file_num}'], start=1):
-                await message.answer(text=f'<a href="{link}">{i}</a>', parse_mode='HTML',disable_web_page_preview=False)
-        else:
-            await bot.send_media_group(chat_id=user, media=json.loads(lex[f'poll_pic_{file_num}']))
-
-        # отправить опрос
-        await bot.send_poll(chat_id=user, question=lex[f'poll_text_{file_num}'], options=['1', '2', '3'],
-                            allows_multiple_answers=True, is_anonymous=False)
-        log('logs.json', user, f'poll_{file_num}')
-        await state.set_state(FSM.polling)
-        return
-
-    else:
-        with open(tasks_tsv, 'r', encoding='utf-8') as f:
-            next_task = []
-            for line in f.readlines():
-                splited_line = line.split('\t')
-                if splited_line[0] == file_num:
-                    next_task = splited_line
-                    break
-
-        print(next_task)
-        # текст задания
-        task_message = get_task_message(next_task)
-        # отправка задания юзеру
-        await bot.send_message(chat_id=user, text=task_message, parse_mode='HTML')
-        await state.set_state(FSM.ready_for_next)
-
-    # если задания кончились
-    if not file_num:
-        await bot.send_message(chat_id=user, text=lex['no_more'], parse_mode='HTML')
-
-
-# юзер выполняет тестик
-@router.poll_answer()
-async def poll(poll_answer: PollAnswer, bot: Bot, state: FSMContext):
-    user = str(poll_answer.user.id)
-    print(poll_answer.model_dump_json(indent=4, exclude_none=True))
-
-    # чтение БД
-    with open(baza_task, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    file_num = ''
-    # вычисляем, по какому заданию был тест
-    tasks = data[user]
-    for i in tasks:
-        # print(tasks[i])
-        if tasks[i][0] in ('status', 'reject'):
-            file_num = i
-            log('logs.json', user, f'poll_done_{file_num}')
-            break
-    print(file_num)
-
-    # Отправить комментарий к тесту
-    if poll_answer.option_ids == [0, 1]:
-        text = 'Правильно!\n\n'+lex[f'poll_ans_{file_num}']
-    else:
-        text = 'Неверно, будьте внимательнее\n\n'+lex[f'poll_ans_{file_num}']
-
-    await bot.send_message(chat_id=user, text=text, parse_mode='HTML')
-
-    # создание текста с заданием
     with open(tasks_tsv, 'r', encoding='utf-8') as f:
         next_task = []
         for line in f.readlines():
@@ -258,16 +183,17 @@ async def poll(poll_answer: PollAnswer, bot: Bot, state: FSMContext):
             if splited_line[0] == file_num:
                 next_task = splited_line
                 break
-    # print(next_task)
-    name = next_task[1] + ' ' + next_task[3]
-    link = next_task[2]
-    instruct = next_task[4]
-    task_message = f'<a href="{link}">{name}</a>\n{instruct}'
 
+    print(next_task)
+    # текст задания
+    task_message = get_task_message(next_task)
     # отправка задания юзеру
-    await asyncio.sleep(2)
     await bot.send_message(chat_id=user, text=task_message, parse_mode='HTML')
     await state.set_state(FSM.ready_for_next)
+
+    # если задания кончились
+    if not file_num:
+        await bot.send_message(chat_id=user, text=lex['no_more'], parse_mode='HTML')
 
 
 # юзер согласен с политикой ✅
@@ -275,39 +201,36 @@ async def poll(poll_answer: PollAnswer, bot: Bot, state: FSMContext):
 async def privacy_ok(callback: CallbackQuery, bot: Bot, state: FSMContext):
     worker = callback.from_user
     print(worker.id, 'privacy_ok')
-    log('logs.json', worker.id, 'privacy_ok')
+    await log('logs.json', worker.id, 'privacy_ok')
 
     # выдать инструкцию и примеры
     msg_to_pin = await bot.send_message(text=lex['instruct1'], chat_id=worker.id, parse_mode='HTML')
     await bot.send_message(text=f"{lex['instruct2']}\n\n{lex['full_hd']}", chat_id=worker.id, parse_mode='HTML',
                            disable_web_page_preview=True, reply_markup=keyboard_user)
-    # пример
-    await bot.send_message(chat_id=worker.id, text=lex['good_exmpl'], parse_mode='HTML',disable_web_page_preview=True)
-    # антипример
-    await bot.send_message(chat_id=worker.id, text=lex['bad_exmpl'], parse_mode='HTML' ,disable_web_page_preview=True)
     # закреп
     await bot.pin_chat_message(message_id=msg_to_pin.message_id, chat_id=worker.id, disable_notification=True)
+    await state.clear()
 
-#
-# # если юзер пишет что-то не нажав ✅
-# @router.message(StateFilter(FSM.policy))
-# async def privacy_missing(msg: Message):
-#     log('logs.json', msg.from_user.id, 'privacy_missing')
-#     await msg.answer(text=lex['privacy_missing'])
+
+# если юзер пишет что-то не нажав ✅
+@router.message(StateFilter(FSM.policy))
+async def privacy_missing(msg: Message):
+    await log('logs.json', msg.from_user.id, 'privacy_missing')
+    await msg.answer(text=lex['privacy_missing'])
 
 
 # юзер отправил альбом: не принимается
 @router.message(F.media_group_id)
 async def alb(msg: Message):
     worker = msg.from_user
-    log('logs.json', worker.id, 'album')
+    await log('logs.json', worker.id, 'album')
     await msg.reply(lex['album'])
 
 
 # юзер отправил сжатый файл: не принимается
 @router.message(F.content_type.in_({'photo', 'video'}))
 async def compressed_pic(msg: Message):
-    log('logs.json', msg.from_user.id, 'compressed_file')
+    await log('logs.json', msg.from_user.id, 'compressed_file')
     await msg.reply(lex['full_hd'], parse_mode='HTML')
 
 
@@ -319,20 +242,20 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
     # отклонить если файл тяжелее 50 мб
     size = msg.document.file_size
     if size > 50000000:
-        log(logs, user, f'size {size}')
+        await log(logs, user, f'size {size}')
         print('size', size)
         await msg.answer(text=lex['big_file'])
         return
 
-    # отклонить если вертикальная съемка (если у файла есть thumbnail, то можно посчитать его размер)
-    if msg.document.thumbnail:
-        width = msg.document.thumbnail.width
-        height = msg.document.thumbnail.height
-        if width <= height:
-            log(logs, user, f'vertical_file')
-            print('vertical_file', f'{width} <= {height}')
-            await msg.answer(text='Нужно снимать горизонтально, а не вертикально. Пожалуйста, переделайте.')
-            return
+    # # отклонить если вертикальная съемка (если у файла есть thumbnail, то можно посчитать его размер)
+    # if msg.document.thumbnail:
+    #     width = msg.document.thumbnail.width
+    #     height = msg.document.thumbnail.height
+    #     if width <= height:
+    #         await log(logs, user, f'vertical_file')
+    #         print('vertical_file', f'{width} <= {height}')
+    #         await msg.answer(text='Нужно снимать горизонтально, а не вертикально. Пожалуйста, переделайте.')
+    #         return
 
     # чтение БД
     with open(baza_task, 'r', encoding='utf-8') as f:
@@ -340,15 +263,9 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 
     # вычисляем, какое было прислано задание
     sent_file = find_next_task(user)
-    # tasks = data[user]
-    # for i in tasks:
-    #     # print(tasks[i])
-    #     if tasks[i][0] in ('status', 'reject'):
-    #         sent_file = i
-    #         log('logs.json', user, f'SENT_{sent_file}')
-    #         break
+    content_type = msg.content_type
     print(user, 'sent', sent_file)
-    log('logs.json', user, f'SENT_{sent_file}')
+    await log('logs.json', user, f'SENT_{sent_file}')
 
     # меняем статус задания на 'review' и сохраняем file_id
     data[user][sent_file] = ('review', msg.document.file_id)
@@ -393,7 +310,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 
         # уведомить юзера, админов, внести в логи и в консоль
         await msg.reply(lex['all_sent'])
-        log('logs.json', user, 'SENT_ALL_FILES')
+        await log('logs.json', user, 'SENT_ALL_FILES')
         print(user, 'SENT_ALL_FILES')
         for i in admins + [validator]:
             if i:
@@ -408,7 +325,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
             await bot.send_document(chat_id=admins[0], document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
             if validator:
                 await bot.send_document(chat_id=validator, document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
-        log(logs, user, 'review files received')
+        await log(logs, user, 'review files received')
 
         # сообщение с кнопками (✅принять или нет❌) если нет валидатора, то кнопки получит админ
         send_to = validator if validator else admins[0]
@@ -421,7 +338,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 async def cancel_command(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     print(user, '/cancel')
-    log('logs.json', user, '/cancel')
+    await log('logs.json', user, '/cancel')
     with open(baza_task, 'r') as f:
         data = json.load(f)
     if user in data:
@@ -486,7 +403,7 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
 # юзер что-то пишет
 @router.message(~Access(admins+validators), F.content_type.in_({'text'}))
 async def usr_txt2(msg: Message, bot: Bot):
-    log('logs.json', msg.from_user.id, msg.text)
+    await log('logs.json', msg.from_user.id, msg.text)
 
     # показать админам
     for i in admins:
