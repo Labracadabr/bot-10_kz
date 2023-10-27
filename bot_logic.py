@@ -129,6 +129,19 @@ def get_task_message(next_task) -> str:
     return task_message
 
 
+# отправить json
+async def send_json(user: str, file: str):
+    files = {
+        'bd': baza_task,
+        'info': baza_info,
+        'logs': logs,
+    }
+    output = list(files.values()) if file == 'all' else [files[file]]
+    for i in output:
+        await bot_func.send_document(chat_id=user, document=FSInputFile(path=i))
+    await log(logs, user, f'adm file request: {file}')
+
+
 # создать tsv с названиями файлов и ссылками на их скачивания, return путь к файлу
 async def get_tsv(TKN, bot, msg, worker) -> str:
     #  чтение БД
@@ -140,7 +153,8 @@ async def get_tsv(TKN, bot, msg, worker) -> str:
     for file_num in tasks:
         # добыть ссылку по file_id
         try:
-            file_info = await bot.get_file(tasks[file_num][1])
+            file_id = tasks[file_num][1]
+            file_info = await bot.get_file(file_id)
             file_url = file_info.file_path
             url = f'https://api.telegram.org/file/bot{TKN}/{file_url}'
             print(file_num, url)
@@ -150,10 +164,7 @@ async def get_tsv(TKN, bot, msg, worker) -> str:
 
         urls.setdefault(file_num, url)
 
-    folder = 'sent_files'
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    path = f'{folder}/sent_{worker}.tsv'
+    path = f'sent_{worker}.tsv'
     with open(path, 'w', encoding='UTF-8') as file:
         # tasks_dict = lex['tasks']
         #  создание слоавря {код задания: название}
