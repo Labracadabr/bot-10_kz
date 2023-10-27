@@ -53,6 +53,7 @@ async def admin_ok(callback: CallbackQuery, bot:Bot):
     # отправить tsv админу
     for i in admins:
         await bot.send_document(chat_id=i, document=FSInputFile(path=path))
+    os.remove(path)
 
 
 # admin нажал ❌
@@ -65,9 +66,7 @@ async def admin_no(callback: CallbackQuery, bot: Bot):
     await bot.edit_message_text(f'{msg.text}\n\n❌ Отклонено. Напиши причину отказа '
                                 f'для каждого файла <b>одним ответом на это сообщение</b>!\n\n'
                                 f'Укажи номер задания и через пробел причину. Следующее задание '
-                                f'- перенос строки. Например:\n'
-                                f'\n<i>05 плохое качество'
-                                f'\n51 обрезано лицо</i>',
+                                f'- перенос строки. Например:\n\n<i>05 плохое качество\n51 обрезано лицо</i>',
                                 msg.chat.id, msg.message_id, parse_mode='HTML', reply_markup=None)
 
 
@@ -101,7 +100,11 @@ async def reply_to_msg(msg: Message, bot: Bot):
             if not file_num.isnumeric():
                 correct_format = False
                 await bot.send_message(orig.chat.id, lex['wrong_rej_form'])
-                break
+                return
+            if int(file_num) > total_tasks:
+                await bot.send_message(orig.chat.id, text=f'Нет задания под номером {file_num}\nНапиши причину отказа снова.')
+                return
+
             rejected_files.append(line.split()[0])
             txt_for_worker += line + '\n'
 
@@ -262,16 +265,13 @@ async def adm_msg(msg: Message, bot: Bot):
         await bot.send_message(chat_id=user, text=f'Доставлено до {msg_sent} из {msg_sent + not_found} юзеров')
 
     # админ запрашивает файл
-    elif txt.lower() == 'send bd':
-        await bot.send_document(chat_id=user, document=FSInputFile(path=baza_task))
-    elif txt.lower() == 'send info':
-        await bot.send_document(chat_id=user, document=FSInputFile(path=baza_info))
-    elif txt.lower() == 'send logs':
-        await bot.send_document(chat_id=user, document=FSInputFile(path=logs))
-    elif txt.lower() == 'send all':
-        await bot.send_document(chat_id=user, document=FSInputFile(path=baza_task))
-        await bot.send_document(chat_id=user, document=FSInputFile(path=baza_info))
-        await bot.send_document(chat_id=user, document=FSInputFile(path=logs))
+    elif txt.lower().startswith('send'):
+        file = txt.lower().split()[-1]
+        if file in ('bd', 'info', 'logs', 'all'):
+            await send_json(user=user, file=file)
+        else:
+            await msg.answer('Команда не распознана')
+            await log(logs, user, f'wrong_command: \n{txt}')
 
     # принять все файлы по айди юзера
     elif txt.lower().startswith('accept id'):
@@ -298,6 +298,7 @@ async def adm_msg(msg: Message, bot: Bot):
         path = await get_tsv(TKN, bot, msg, worker)
         await bot.send_document(chat_id=msg.from_user.id, document=FSInputFile(path=path))
         await log(logs, worker, 'adm_get_tsv')
+        os.remove(path)
 
     # отпр файлы юзера, прим сообщения: files id12345 review
     elif txt.lower().startswith('files id'):
