@@ -53,44 +53,8 @@ async def process_help_command(msg: Message):
 @router.message(Command(commands=['status']))
 async def process_status_command(msg: Message, bot: Bot):
     user = str(msg.from_user.id)
-    print(user, '/status')
     await log('logs.json', user, '/status')
-    with open(baza_task, 'r') as f:
-        data = json.load(f)
 
-    # дать статус заданий по айди юзера
-    async def get_status(user_id):
-        non = rev = rej = acc = 0
-        try:
-            info = data[user_id]
-            for task in info:
-                # print(task)
-                if info[task][0] == 'status':
-                    non += 1
-                elif info[task][0] == 'review':
-                    rev += 1
-                elif info[task][0] == 'reject':
-                    rej += 1
-                elif info[task][0] == 'accept':
-                    acc += 1
-        except KeyError:
-            non = total_tasks
-        return f'✅ Принято - {acc}\n🔁 Надо переделать - {rej}\n⏳ На проверке - <b>{rev}</b>\n💪 Осталось сделать - {non}'
-
-    # # если это админ - показать статус всех юзеров
-    # if user in admins:
-    #     answer_text = ''
-    #     for usr in data:
-    #         usr_stat = await get_status(usr)
-    #         if not usr_stat.endswith(total_tasks):
-    #             answer_text += f'\nid{usr}\n{usr_stat}\n'
-    #     if answer_text:
-    #         await msg.answer('Статусы всех юзеров, кто отправил хотя бы один файл:\n'+answer_text, parse_mode='HTML')
-    #     else:
-    #         await msg.answer('Ещё никто ничего не отправил')
-    #
-    # # простому юзеру показать только его статус
-    # if user not in admins:
     stat = await get_status(user)
     await msg.answer(f'Ваши задания:\n\n{stat}', parse_mode='HTML')
 
@@ -169,28 +133,29 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
 @router.message(Command(commands=['next']), ~StateFilter(FSM.policy))
 async def next_cmnd(message: Message, bot: Bot, state: FSMContext):
     user = str(message.from_user.id)
-    print(user, '/next')
     await log(logs, user, '/next')
 
-    # найти первое доступное задание, т.е. без статуса accept или review, и отправить юзеру
+    # Найти первое доступное задание, т.е. без статуса accept или review, и отправить юзеру
     file_num = find_next_task(user)
 
-    with open(tasks_tsv, 'r', encoding='utf-8') as f:
-        next_task = []
-        for line in f.readlines():
-            splited_line = line.split('\t')
-            if splited_line[0] == file_num:
-                next_task = splited_line
-                break
+    # если нашлись
+    if file_num:
+        with open(tasks_tsv, 'r', encoding='utf-8') as f:
+            next_task = []
+            for line in f.readlines():
+                splited_line = line.split('\t')
+                if splited_line[0] == file_num:
+                    next_task = splited_line
+                    break
 
-    print(next_task)
-    # текст задания
-    task_message = get_task_message(next_task)
-    # отправка задания юзеру
-    await bot.send_message(chat_id=user, text=task_message, parse_mode='HTML')
-    await state.set_state(FSM.ready_for_next)
+        print(next_task)
+        # текст задания
+        task_message = get_task_message(next_task)
+        # отправка задания юзеру
+        await bot.send_message(chat_id=user, text=task_message, parse_mode='HTML')
+        await state.set_state(FSM.ready_for_next)
 
-    # если задания кончились
+    # если задания кончились или не начались
     if not file_num:
         await bot.send_message(chat_id=user, text=lex['no_more'], parse_mode='HTML')
 
@@ -242,7 +207,6 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
     size = msg.document.file_size
     if size > 50000000:
         await log(logs, user, f'size {size}')
-        print('size', size)
         await msg.answer(text=lex['big_file'])
         return
 
@@ -262,8 +226,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 
     # вычисляем, какое было прислано задание
     sent_file = find_next_task(user)
-    print(user, 'sent', sent_file)
-    await log('logs.json', user, f'SENT_{sent_file}')
+    await log(logs, user, f'SENT_{sent_file}')
 
     # меняем статус задания на 'review' и сохраняем file_id
     data[user][sent_file] = ('review', msg.document.file_id)
@@ -334,7 +297,6 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
 @router.message(Command(commands=['cancel']))
 async def cancel_command(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
-    print(user, '/cancel')
     await log('logs.json', user, '/cancel')
     with open(baza_task, 'r') as f:
         data = json.load(f)
@@ -359,8 +321,11 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
     # обработать номера заданий
     nums_to_cancel = []
     for num in msg.text.split():
+        #  проверка правильности ввода
         if num.isnumeric() and len(num) == 2:
             nums_to_cancel.append(num)
+
+        # если номера указаны неверно
         else:
             await msg.reply(lex['cancel_wrong_form'])
             await log(logs, user, 'cancel_wrong_form')

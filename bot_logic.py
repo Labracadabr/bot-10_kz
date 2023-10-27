@@ -16,6 +16,34 @@ TKN: str = config.tg_bot.token
 bot_func: Bot = Bot(TKN)
 
 
+# Фильтр, проверяющий доступ юзера
+class Access(BaseFilter):
+    def __init__(self, access: list[str]) -> None:
+        # В качестве параметра фильтр принимает список со строками
+        self.access = access
+
+    async def __call__(self, message: Message) -> bool:
+        user_id_str = str(message.from_user.id)
+        return user_id_str in self.access
+
+
+# Состояния FSM
+class FSM(StatesGroup):
+    # Состояния, в которых будет находиться бот в разные моменты взаимодействия с юзером
+    policy = State()            # Состояние ожидания соглашения с policy
+    cancelation = State()       # Отмена отправки
+    ready_for_next = State()    #
+    done_a_task = State()       #
+    all_accepted = State()      # все принято юзер, ждет оплаты
+    password = State()          # бот просит пароль
+    delete = State()            # Админ стирает чью-то учетную запись
+    age = State()               # Заполнение перс данных
+    gender = State()            # Заполнение перс данных
+    fio = State()               # Заполнение перс данных
+    country = State()           # Заполнение перс данных
+    polling = State()           # тест для юзера
+
+
 # Запись данных item в указанный json file по ключу key
 async def log(file, key, item):
     with open(file, encoding='utf-8') as f:
@@ -34,8 +62,30 @@ async def log(file, key, item):
         print('channel error', e)
 
 
+# дать статус заданий по айди юзера
+async def get_status(user_id):
+    with open(baza_task, 'r') as f:
+        data = json.load(f)
+    non = rev = rej = acc = 0
+    try:
+        info = data[user_id]
+        for task in info:
+            # print(task)
+            if info[task][0] == 'status':
+                non += 1
+            elif info[task][0] == 'review':
+                rev += 1
+            elif info[task][0] == 'reject':
+                rej += 1
+            elif info[task][0] == 'accept':
+                acc += 1
+    except KeyError:
+        non = total_tasks
+    return f'✅ Принято - {acc}\n🔁 Надо переделать - {rej}\n⏳ На проверке - {rev}\n💪 Осталось сделать - {non}'
+
+
 # айди из текста
-def id_from_text(text):
+def id_from_text(text: str) -> str:
     user_id = ''
     for word in text.split():
         if word.lower().startswith('id'):
@@ -58,7 +108,10 @@ def find_next_task(user: str):
     # считать статусы заданий юзера
     with open(baza_task, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    tasks = data[user]
+    try:
+        tasks = data[user]
+    except KeyError:
+        return None
     for file_num in tasks:
         if tasks[file_num][0] in ('status', 'reject'):
             # задание найдено
@@ -74,34 +127,6 @@ def get_task_message(next_task) -> str:
     instruct = next_task[4]
     task_message = f'<a href="{link}">{task_name}</a>\n{instruct}'
     return task_message
-
-
-# Фильтр, проверяющий доступ юзера
-class Access(BaseFilter):
-    def __init__(self, access: list[str]) -> None:
-        # В качестве параметра фильтр принимает список со строками
-        self.access = access
-
-    async def __call__(self, message: Message) -> bool:
-        user_id_str = str(message.from_user.id)
-        return user_id_str in self.access
-
-
-# Состояния FSM
-class FSM(StatesGroup):
-    # Состояния, в которых будет находиться бот в разные моменты взаимодействия с юзером
-    policy = State()            # Состояние ожидания соглашения с policy
-    cancelation = State()       # Отмена отправки
-    ready_for_next = State()    #
-    done_a_task = State()       #
-    all_accepted = State()      # Юзер всё скинул и ждет оплаты
-    password = State()          # бот просит пароль
-    delete = State()            # Админ стирает чью-то учетную запись
-    age = State()               # Заполнение перс данных
-    gender = State()            # Заполнение перс данных
-    fio = State()               # Заполнение перс данных
-    country = State()           # Заполнение перс данных
-    polling = State()           # тест для юзера
 
 
 # создать tsv с названиями файлов и ссылками на их скачивания, return путь к файлу
