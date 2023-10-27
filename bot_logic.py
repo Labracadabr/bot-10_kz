@@ -13,7 +13,7 @@ from config import Config, load_config
 # Инициализация
 config: Config = load_config()
 TKN: str = config.tg_bot.token
-bot: Bot = Bot(TKN)
+bot_func: Bot = Bot(TKN)
 
 
 # Запись данных item в указанный json file по ключу key
@@ -28,9 +28,10 @@ async def log(file, key, item):
     print(log_text)
     # дублировать логи в тг-канал
     try:
-        await bot.send_message(chat_id=log_channel_id, text=log_text) if log_channel_id else None
+        await bot_func.send_message(chat_id=log_channel_id, text=log_text) if log_channel_id else None
+        pass
     except Exception as e:
-        print(e)
+        print('channel error', e)
 
 
 # айди из текста

@@ -1,5 +1,4 @@
 from aiogram import Router, Bot, F
-from aiogram.types import Message, CallbackQuery, FSInputFile
 from settings import admins, baza_task, baza_info, logs, validators
 from bot_logic import *
 from lexic import lex
@@ -333,5 +332,5 @@ async def adm_msg(msg: Message, bot: Bot):
         #     await msg.answer(f'Ответь на свое сообщение, и я покажу его юзеру id{id_from_text(txt)}')
     else:
         await msg.answer('Команда не распознана')
-        await log(logs, user, 'adm_tupit')
+        await log(logs, user, f'wrong_command: \n{txt}')
 

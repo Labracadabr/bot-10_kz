@@ -23,8 +23,7 @@ storage: MemoryStorage = MemoryStorage()
 @router.message(Command(commands=['help']))
 async def process_help_command(msg: Message):
     user = str(msg.from_user.id)
-    print(user, '/help')
-    await log('logs.json', user, '/help')
+    await log(logs, user, '/help')
 
     if user in admins + validators:
         await msg.answer(lex['adm_help'], parse_mode='HTML')
