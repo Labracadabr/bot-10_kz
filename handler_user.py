@@ -66,7 +66,6 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
     user = message.from_user
     msg_time = message.date.strftime("%d/%m/%Y %H:%M")
     user_id = str(message.from_user.id)
-    print(referral)
     print(f'Bot start id{user.id} {user.full_name} @{user.username} from:{referral}')
 
     # чтение БД
@@ -115,7 +114,7 @@ async def start_command(message: Message, command: CommandObject, state: FSMCont
         # сообщить админу, кто стартанул бота
         for i in admins:
             await bot.send_message(
-                text=f'Bot started by id{user.id} {user.full_name} @{user.username} from: {referral}',
+                text=f'➕ user {len(data_tsk)} id{user.id} {user.full_name} @{user.username} from: {referral}',
                 chat_id=i, disable_notification=True)
 
         # логи
@@ -187,14 +186,14 @@ async def privacy_missing(msg: Message):
 @router.message(F.media_group_id)
 async def alb(msg: Message):
     worker = msg.from_user
-    await log('logs.json', worker.id, 'album')
+    await log(logs, worker.id, 'album')
     await msg.reply(lex['album'])
 
 
 # юзер отправил сжатый файл: не принимается
 @router.message(F.content_type.in_({'photo', 'video'}))
 async def compressed_pic(msg: Message):
-    await log('logs.json', msg.from_user.id, 'compressed_file')
+    await log(logs, msg.from_user.id, 'compressed_file')
     await msg.reply(lex['full_hd'], parse_mode='HTML')
 
 
@@ -269,17 +268,18 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
         else:
             ref = None
 
+        # список [('тг-айди файла', 'текст задания'), (...]
+        output = await send_files(user, 'review')
+
         # уведомить юзера, админов, внести в логи и в консоль
         await msg.reply(lex['all_sent'])
-        await log(logs, user, 'SENT_ALL_FILES')
+        await log(logs, user, f'SENT_ALL_FILES: {len(output)}')
         for i in admins + [validator]:
             if i:
-                await bot.send_message(chat_id=i, text=f'Юзер отправил все файлы - id{user}'
+                await bot.send_message(chat_id=i, text=f'Юзер отправил {len(output)} файлов - id{user}'
                                        f'\n{msg.from_user.full_name} @{msg.from_user.username} ref: {ref}')
 
         # Отправить файлЫ на проверку одному валидатору (если есть) и первому админу
-        output = await send_files(user, 'review')
-        # print(output)
         for i in output:
             file_id, task_message = i
             await bot.send_document(chat_id=admins[0], document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
