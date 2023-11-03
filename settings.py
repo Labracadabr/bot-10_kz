@@ -8,7 +8,7 @@ liza = '677214436'
 anya = '639770334'
 kate = ''
 
-# Список id админов. Файлы приходят только первому по списку
+# Список id админов. Файлы приходят автоматически только первому по списку
 # admins: list[str] = [anya]
 # admins: list[str] = [dima]
 admins: list[str] = [anya, dima]
@@ -27,10 +27,10 @@ logs = 'logs.json'
 tasks_tsv = 'tasks.tsv'
 
 # каналы сбора
-referrals: tuple = ('smeight', 'gulnara', 'its_dmitrii', 'Natali', 'TD', 'Marina', 'schura', 'hanna', 'toloka', 'cat', 'airplane', 'one_more', 'good')
-# https://t.me/PhotoTasksBot?start=...
+referrals = ('smeight', 'gulnara', 'its_dmitrii', 'Natali', 'TD', 'Marina', 'schura', 'hanna', 'toloka', 'cat', 'airplane', 'one_more', 'good')
+# https://t.me/PhotoTasksBot?start={}...
 
-# канал для логов
+# tg канал для логов
 log_channel_id = '-1001642041865'
 
 # # игнорить ли сообщения, присланные во время отключения бота
@@ -45,11 +45,12 @@ for file in file_list:
                 print('Отсутствующий файл создан:', file)
                 print('{}', file=f)
         else:
-            print('Ошибка! Отсутствует файл с заданиями')
-            raise Exception
+            print("Ошибка! Отсутствует файл с заданиями")
+            exit()
 
 with open(tasks_tsv, 'r', encoding='utf-8') as f:
     task_list = f.readlines()
     if not len(task_list) == total_tasks:
-        print('Ошибка! Неверное число заданий')
-        raise Exception
+        print('Ошибка! Не совпадает число заданий')
+        exit()
+print('OK')
