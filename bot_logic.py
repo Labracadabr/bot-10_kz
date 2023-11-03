@@ -2,7 +2,7 @@ import json
 from aiogram.filters import BaseFilter
 from aiogram.filters.state import State, StatesGroup
 import os
-from settings import baza_task, baza_info, tasks_tsv, logs, total_tasks, log_channel_id
+from settings import *
 from lexic import lex
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery, FSInputFile
@@ -57,7 +57,6 @@ async def log(file, key, item):
     # дублировать логи в тг-канал
     try:
         await bot_func.send_message(chat_id=log_channel_id, text=log_text) if log_channel_id else None
-        pass
     except Exception as e:
         print('channel error', e)
 
@@ -96,9 +95,9 @@ def id_from_text(text: str) -> str:
     return user_id
 
 
-# создать учет заданий
+# создать учетную запись заданий
 def create_account(task_amount: int) -> dict:
-    # = {"file01": ['status', 'file'], }
+    # пример = {"file01": ['status', 'file'], }
     account = {f'file{num:0>2}': ['status', 'file'] for num in range(1, task_amount+1)}
     return account
 

@@ -1,5 +1,3 @@
-import asyncio
-import json
 from aiogram import Router, Bot, F
 from aiogram.filters import Command, CommandStart, StateFilter, CommandObject
 from bot_logic import *
@@ -287,7 +285,7 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
                 await bot.send_document(chat_id=validator, document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
         await log(logs, user, 'review files received')
 
-        # сообщение с кнопками (✅принять или нет❌) если нет валидатора, то кнопки получит админ
+        # сообщение с кнопками (✅принять или нет❌) - если нет валидатора, то кнопки получит админ
         send_to = validator if validator else admins[0]
         await bot.send_message(chat_id=send_to, text=f'{lex["adm_review"]} id{user}?\n{msg.from_user.full_name}'
                                                      f' @{msg.from_user.username} ref: {ref}', reply_markup=keyboard_admin)
@@ -357,11 +355,12 @@ async def cancel(msg: Message, bot: Bot, state: FSMContext):
         print(user, 'files cancelled', cancelled)
 
         # уведомить юзера о результате
-        await msg.reply(text=lex['cancel_ok']+', '.join(cancelled))
-        await state.clear()
-        await log(logs, user, f'cancelled {cancelled}, not found {not_found}')
+        if cancelled:
+            await msg.reply(text=lex['cancel_ok']+', '.join(cancelled))
         if not_found:
             await msg.answer(text=lex['cancel_not_found']+', '.join(not_found))
+        await state.clear()
+        await log(logs, user, f'cancelled {cancelled}, not found {not_found}')
 
 
 # юзер что-то пишет
