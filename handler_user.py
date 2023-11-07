@@ -24,7 +24,7 @@ async def process_help_command(msg: Message):
     await log(logs, user, '/help')
 
     if user in admins + validators:
-        await msg.answer(lex['adm_help'], parse_mode='HTML')
+        await msg.answer(lex['adm_help'].format(len(admins), len(validators)), parse_mode='HTML')
     else:
         await msg.answer(lex['help'])
 
@@ -277,12 +277,13 @@ async def file_ok(msg: Message, bot: Bot, state: FSMContext):
                 await bot.send_message(chat_id=i, text=f'Юзер отправил {len(output)} файлов - id{user}'
                                        f'\n{msg.from_user.full_name} @{msg.from_user.username} ref: {ref}')
 
-        # Отправить файлЫ на проверку одному валидатору (если есть) и первому админу
+        # Отправить файлЫ на проверку одному валидатору если он есть, иначе - первому админу
         for i in output:
             file_id, task_message = i
-            await bot.send_document(chat_id=admins[0], document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
             if validator:
                 await bot.send_document(chat_id=validator, document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
+            else:
+                await bot.send_document(chat_id=admins[0], document=file_id, caption=task_message, parse_mode='HTML', disable_notification=True)
         await log(logs, user, 'review files received')
 
         # сообщение с кнопками (✅принять или нет❌) - если нет валидатора, то кнопки получит админ
